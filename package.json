@@ -1,0 +1,16 @@
+{
+  "name": "TimeDiff",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "i18next": "^23.16.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "private": false
+}
