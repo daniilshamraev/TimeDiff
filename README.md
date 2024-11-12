@@ -7,7 +7,7 @@
 Для начала установите библиотеку через npm:
 
 ```bash
-npm install timediff
+npm install @on_plc/TimeDiff
 ```
 
 ## Импорт и использование
