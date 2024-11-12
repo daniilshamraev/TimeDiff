@@ -1,5 +1,5 @@
 {
-  "name": "@on_plc/TimeDiff",
+  "name": "@on_plc/timediff",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
