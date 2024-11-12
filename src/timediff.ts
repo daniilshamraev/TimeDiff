@@ -7,15 +7,23 @@ type TimeDiffResult = {
     seconds: number;
 };
 
+/**
+ * Класс для вычисления разницы между двумя датами и выполнения операций с ней.
+ * Поддерживает локализацию через i18next и форматирование вывода.
+ */
 class TimeDiff {
-    private date1: Date;
-    private date2: Date;
+    private milliseconds: number;
 
+    /**
+     * Конструктор класса TimeDiff.
+     * @param date1 - Первая дата.
+     * @param date2 - Вторая дата.
+     * Разница между датами будет вычислена в миллисекундах.
+     */
     constructor(date1: Date, date2: Date) {
-        this.date1 = date1;
-        this.date2 = date2;
+        this.milliseconds = Math.abs(date2.getTime() - date1.getTime());
 
-        // Инициализация i18n, если не была произведена в контексте приложения
+        // Инициализация i18n, если она не была произведена в контексте приложения
         if (!i18next.isInitialized) {
             i18next.init({
                 lng: this.detectLanguage(),
@@ -53,30 +61,93 @@ class TimeDiff {
         }
     }
 
+    /**
+     * Определяет язык системы или браузера.
+     * @returns Язык в виде строки (например, 'en' или 'ru').
+     */
     private detectLanguage(): string {
-        // Пытаемся определить язык системы или браузера, если доступно
-        return navigator?.language || 'en'; // fallback на 'en', если `navigator` не доступен
+        return navigator?.language || 'en';
     }
 
+    /**
+     * Вычисляет разницу в днях, часах, минутах и секундах.
+     * @returns Объект типа TimeDiffResult с вычисленными значениями.
+     */
     private calculateDiff(): TimeDiffResult {
-        const diffInMs = Math.abs(this.date2.getTime() - this.date1.getTime());
-        const days = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diffInMs % (1000 * 60)) / 1000);
+        const days = Math.floor(this.milliseconds / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((this.milliseconds % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((this.milliseconds % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((this.milliseconds % (1000 * 60)) / 1000);
         return { days, hours, minutes, seconds };
     }
 
-    public humanize(locale: string = ''): string {
+    /**
+     * Сложение двух объектов TimeDiff.
+     * @param a - Первый объект TimeDiff.
+     * @param b - Второй объект TimeDiff.
+     * @returns Новый объект TimeDiff с результатом сложения.
+     */
+    public static add(a: TimeDiff, b: TimeDiff): TimeDiff {
+        return new TimeDiff(new Date(0), new Date(a.milliseconds + b.milliseconds));
+    }
+
+    /**
+     * Вычитание одного объекта TimeDiff из другого.
+     * @param a - Первый объект TimeDiff.
+     * @param b - Второй объект TimeDiff.
+     * @returns Новый объект TimeDiff с результатом вычитания.
+     */
+    public static subtract(a: TimeDiff, b: TimeDiff): TimeDiff {
+        return new TimeDiff(new Date(0), new Date(Math.abs(a.milliseconds - b.milliseconds)));
+    }
+
+    /**
+     * Метод для сложения текущего объекта TimeDiff с другим объектом TimeDiff.
+     * @param other - Объект TimeDiff, который будет добавлен.
+     * @returns Новый объект TimeDiff с результатом сложения.
+     */
+    public plus(other: TimeDiff): TimeDiff {
+        return TimeDiff.add(this, other);
+    }
+
+    /**
+     * Метод для вычитания другого объекта TimeDiff из текущего.
+     * @param other - Объект TimeDiff, который будет вычтен.
+     * @returns Новый объект TimeDiff с результатом вычитания.
+     */
+    public minus(other: TimeDiff): TimeDiff {
+        return TimeDiff.subtract(this, other);
+    }
+
+    /**
+     * Преобразует разницу в формате человекочитаемой строки.
+     * @param locale - Язык для вывода результата (например, 'en' или 'ru').
+     * @param format - Формат вывода ('short' или 'long').
+     * @returns Строка с форматированной разницей.
+     */
+    public humanize(locale: string = '', format: 'short' | 'long' = 'long'): string {
         const { days, hours, minutes, seconds } = this.calculateDiff();
         i18next.changeLanguage(locale || this.detectLanguage());
 
-        const daysStr = days > 0 ? i18next.t(days === 1 ? 'days' : 'days_plural', { count: days }) : '';
-        const hoursStr = hours > 0 ? i18next.t(hours === 1 ? 'hours' : 'hours_plural', { count: hours }) : '';
-        const minutesStr = minutes > 0 ? i18next.t(minutes === 1 ? 'minutes' : 'minutes_plural', { count: minutes }) : '';
-        const secondsStr = seconds > 0 ? i18next.t(seconds === 1 ? 'seconds' : 'seconds_plural', { count: seconds }) : '';
+        // Функция для получения правильного склонения времени
+        const formatUnit = (unit: number, singularKey: string, pluralKey: string): string => {
+            return i18next.t(unit === 1 ? singularKey : pluralKey, { count: unit });
+        };
 
-        return [daysStr, hoursStr, minutesStr, secondsStr].filter(Boolean).join(', ');
+        // Форматирование дней, часов, минут и секунд в зависимости от выбранного формата
+        let daysStr = formatUnit(days, 'days', 'days_plural');
+        let hoursStr = formatUnit(hours, 'hours', 'hours_plural');
+        let minutesStr = formatUnit(minutes, 'minutes', 'minutes_plural');
+        let secondsStr = formatUnit(seconds, 'seconds', 'seconds_plural');
+
+        if (format === 'short') {
+            daysStr = days > 0 ? `${days}d` : '';
+            hoursStr = hours > 0 ? `${hours}h` : '';
+            minutesStr = minutes > 0 ? `${minutes}m` : '';
+            secondsStr = seconds > 0 ? `${seconds}s` : '';
+        }
+
+        return [daysStr, hoursStr, minutesStr, secondsStr].filter(Boolean).join(format === 'short' ? ' ' : ', ');
     }
 }
 
