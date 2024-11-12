@@ -82,6 +82,14 @@ class TimeDiff {
     }
 
     /**
+     * Преобразует объект TimeDiff в число для поддержки операторов сравнения, сложения и вычитания.
+     * @returns Числовое значение в миллисекундах.
+     */
+    public valueOf(): number {
+        return this.milliseconds;
+    }
+
+    /**
      * Сложение двух объектов TimeDiff.
      * @param a - Первый объект TimeDiff.
      * @param b - Второй объект TimeDiff.
