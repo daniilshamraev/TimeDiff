@@ -7,26 +7,16 @@ type TimeDiffResult = {
     seconds: number;
 };
 
-/**
- * Класс для вычисления разницы между двумя датами и выполнения операций с ней.
- * Поддерживает локализацию через i18next и форматирование вывода.
- */
 class TimeDiff {
     private milliseconds: number;
 
-    /**
-     * Конструктор класса TimeDiff.
-     * @param date1 - Первая дата.
-     * @param date2 - Вторая дата.
-     * Разница между датами будет вычислена в миллисекундах.
-     */
     constructor(date1: Date, date2: Date) {
         this.milliseconds = Math.abs(date2.getTime() - date1.getTime());
 
-        // Инициализация i18n, если она не была произведена в контексте приложения
         if (!i18next.isInitialized) {
             i18next.init({
                 lng: this.detectLanguage(),
+                pluralSeparator: '_',
                 resources: {
                     en: {
                         translation: {
@@ -61,18 +51,10 @@ class TimeDiff {
         }
     }
 
-    /**
-     * Определяет язык системы или браузера.
-     * @returns Язык в виде строки (например, 'en' или 'ru').
-     */
     private detectLanguage(): string {
-        return navigator?.language || 'en';
+        return navigator?.language.startsWith('ru') ? 'ru' : 'en';
     }
 
-    /**
-     * Вычисляет разницу в днях, часах, минутах и секундах.
-     * @returns Объект типа TimeDiffResult с вычисленными значениями.
-     */
     private calculateDiff(): TimeDiffResult {
         const days = Math.floor(this.milliseconds / (1000 * 60 * 60 * 24));
         const hours = Math.floor((this.milliseconds % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -81,81 +63,61 @@ class TimeDiff {
         return { days, hours, minutes, seconds };
     }
 
-    /**
-     * Преобразует объект TimeDiff в число для поддержки операторов сравнения, сложения и вычитания.
-     * @returns Числовое значение в миллисекундах.
-     */
     public valueOf(): number {
         return this.milliseconds;
     }
 
-    /**
-     * Сложение двух объектов TimeDiff.
-     * @param a - Первый объект TimeDiff.
-     * @param b - Второй объект TimeDiff.
-     * @returns Новый объект TimeDiff с результатом сложения.
-     */
     public static add(a: TimeDiff, b: TimeDiff): TimeDiff {
         return new TimeDiff(new Date(0), new Date(a.milliseconds + b.milliseconds));
     }
 
-    /**
-     * Вычитание одного объекта TimeDiff из другого.
-     * @param a - Первый объект TimeDiff.
-     * @param b - Второй объект TimeDiff.
-     * @returns Новый объект TimeDiff с результатом вычитания.
-     */
     public static subtract(a: TimeDiff, b: TimeDiff): TimeDiff {
         return new TimeDiff(new Date(0), new Date(Math.abs(a.milliseconds - b.milliseconds)));
     }
 
-    /**
-     * Метод для сложения текущего объекта TimeDiff с другим объектом TimeDiff.
-     * @param other - Объект TimeDiff, который будет добавлен.
-     * @returns Новый объект TimeDiff с результатом сложения.
-     */
-    public plus(other: TimeDiff): TimeDiff {
-        return TimeDiff.add(this, other);
+    private getPluralKeyForRu(unit: number, singularKey: string, pluralKey1: string, pluralKey2: string): string {
+        const lastDigit = unit % 10;
+        const lastTwoDigits = unit % 100;
+        if (lastDigit === 1 && lastTwoDigits !== 11) {
+            return singularKey;
+        } else if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 10 || lastTwoDigits >= 20)) {
+            return pluralKey1;
+        } else {
+            return pluralKey2;
+        }
     }
 
-    /**
-     * Метод для вычитания другого объекта TimeDiff из текущего.
-     * @param other - Объект TimeDiff, который будет вычтен.
-     * @returns Новый объект TimeDiff с результатом вычитания.
-     */
-    public minus(other: TimeDiff): TimeDiff {
-        return TimeDiff.subtract(this, other);
-    }
-
-    /**
-     * Преобразует разницу в формате человекочитаемой строки.
-     * @param locale - Язык для вывода результата (например, 'en' или 'ru').
-     * @param format - Формат вывода ('short' или 'long').
-     * @returns Строка с форматированной разницей.
-     */
     public humanize(locale: string = '', format: 'short' | 'long' = 'long'): string {
         const { days, hours, minutes, seconds } = this.calculateDiff();
         i18next.changeLanguage(locale || this.detectLanguage());
 
-        // Функция для получения правильного склонения времени
-        const formatUnit = (unit: number, singularKey: string, pluralKey: string): string => {
+        const formatUnit = (unit: number, singularKey: string, pluralKey: string, pluralKey2?: string): string => {
+            if (locale === 'ru') {
+                const pluralKeyRu = this.getPluralKeyForRu(unit, singularKey, pluralKey, pluralKey2 || pluralKey);
+                return i18next.t(pluralKeyRu, { count: unit });
+            }
             return i18next.t(unit === 1 ? singularKey : pluralKey, { count: unit });
         };
 
-        // Форматирование дней, часов, минут и секунд в зависимости от выбранного формата
-        let daysStr = formatUnit(days, 'days', 'days_plural');
-        let hoursStr = formatUnit(hours, 'hours', 'hours_plural');
-        let minutesStr = formatUnit(minutes, 'minutes', 'minutes_plural');
-        let secondsStr = formatUnit(seconds, 'seconds', 'seconds_plural');
-
-        if (format === 'short') {
-            daysStr = days > 0 ? `${days}d` : '';
-            hoursStr = hours > 0 ? `${hours}h` : '';
-            minutesStr = minutes > 0 ? `${minutes}m` : '';
-            secondsStr = seconds > 0 ? `${seconds}s` : '';
+        if (days === 0 && hours === 0 && minutes === 0 && seconds === 0) {
+            return i18next.t('seconds_plural', { count: 0 });
         }
 
-        return [daysStr, hoursStr, minutesStr, secondsStr].filter(Boolean).join(format === 'short' ? ' ' : ', ');
+        const daysStr = days > 0 ? formatUnit(days, 'days', 'days_plural', 'days_plural_2') : '';
+        const hoursStr = hours > 0 ? formatUnit(hours, 'hours', 'hours_plural', 'hours_plural_2') : '';
+        const minutesStr = minutes > 0 ? formatUnit(minutes, 'minutes', 'minutes_plural', 'minutes_plural_2') : '';
+        const secondsStr = seconds > 0 ? formatUnit(seconds, 'seconds', 'seconds_plural', 'seconds_plural_2') : '';
+
+        if (format === 'short') {
+            return [
+                days && `${days}${locale === 'ru' ? 'д' : 'd'}`,
+                hours && `${hours}${locale === 'ru' ? 'ч' : 'h'}`,
+                minutes && `${minutes}${locale === 'ru' ? 'м' : 'm'}`,
+                seconds && `${seconds}${locale === 'ru' ? 'с' : 's'}`
+            ].filter(Boolean).join(' ');
+        }
+
+        return [daysStr, hoursStr, minutesStr, secondsStr].filter(Boolean).join(', ');
     }
 }
 
